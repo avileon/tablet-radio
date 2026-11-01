@@ -115,7 +115,7 @@ class MainActivity : Activity() {
     private fun buildContent() {
         val content = findViewById<LinearLayout>(R.id.content)
         content.removeAllViews()
-        val wide = resources.displayMetrics.widthPixels / resources.displayMetrics.density >= 900
+        val wide = resources.configuration.screenWidthDp >= 900
 
         content.addView(header("תחנות ראשיות"))
         content.addView(grid(3, Stations.main.map { s ->
@@ -247,6 +247,14 @@ class MainActivity : Activity() {
         handler.removeCallbacks(idleCheck)
         resumed = false
         super.onPause()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // סיבוב מסך (הטאבלט נדלק לאורך ומסתובב לרוחב) — לבנות מחדש את הרשת לפי הרוחב החדש
+        tiles.clear()
+        buildContent()
+        render()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
