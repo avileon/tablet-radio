@@ -40,6 +40,8 @@ class MainActivity : Activity() {
     companion object {
         /** קוד יציאה ממצב קיוסק (לחיצה ארוכה על השעון). */
         const val ADMIN_PIN = "1234"
+        /** זמן ללא נגיעה עד הפעלת שומר המסך (תמונות + שעה). */
+        const val IDLE_MS = 60_000L
         private var pinningAsked = false
     }
 
@@ -52,6 +54,26 @@ class MainActivity : Activity() {
     private val tiles = mutableMapOf<String, TextView>()
     private val handler = Handler(Looper.getMainLooper())
     private val stateListener: () -> Unit = { render() }
+    private var lastTouch = 0L
+    private var resumed = false
+
+    private val idleCheck = object : Runnable {
+        override fun run() {
+            if (resumed && hasWindowFocus() &&
+                android.os.SystemClock.elapsedRealtime() - lastTouch >= IDLE_MS
+            ) {
+                lastTouch = android.os.SystemClock.elapsedRealtime()
+                startActivity(Intent(this@MainActivity, ScreensaverActivity::class.java))
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+            }
+            handler.postDelayed(this, 5_000)
+        }
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        lastTouch = android.os.SystemClock.elapsedRealtime()
+        return super.dispatchTouchEvent(ev)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +106,8 @@ class MainActivity : Activity() {
         setupVolume()
         buildContent()
         askPermissionsOnce()
+        // טעינה מוקדמת של רשימת התמונות לשומר המסך
+        Thread { try { PhotoRepo.urls(applicationContext) } catch (_: Exception) {} }.start()
     }
 
     // ---------- UI ----------
@@ -206,6 +230,10 @@ class MainActivity : Activity() {
         RadioState.addListener(stateListener)
         render()
         handler.post(clockTick)
+        resumed = true
+        lastTouch = android.os.SystemClock.elapsedRealtime()
+        handler.removeCallbacks(idleCheck)
+        handler.postDelayed(idleCheck, 5_000)
         startKiosk()
         // אם הרדיו אמור לנגן — לוודא שהשירות פועל
         if (Prefs.wantPlaying(this) && RadioState.status == RadioState.Status.IDLE) {
@@ -216,6 +244,8 @@ class MainActivity : Activity() {
     override fun onPause() {
         RadioState.removeListener(stateListener)
         handler.removeCallbacks(clockTick)
+        handler.removeCallbacks(idleCheck)
+        resumed = false
         super.onPause()
     }
 

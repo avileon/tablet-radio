@@ -44,6 +44,14 @@
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode" />
 
+        <activity
+            android:name=".ScreensaverActivity"
+            android:exported="false"
+            android:lockTaskMode="if_whitelisted"
+            android:screenOrientation="sensorLandscape"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode" />
+
         <service
             android:name=".RadioService"
             android:exported="false"

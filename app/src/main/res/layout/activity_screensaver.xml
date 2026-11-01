@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    android:layoutDirection="rtl">
+
+    <ImageView
+        android:id="@+id/imgA"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <ImageView
+        android:id="@+id/imgB"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <!-- הצללה תחתונה לקריאות השעה -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="260dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bottom_shade" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="36dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ssClock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="110sp"
+            android:fontFamily="sans-serif-light"
+            android:includeFontPadding="false"
+            android:shadowColor="#AA000000"
+            android:shadowRadius="12" />
+
+        <TextView
+            android:id="@+id/ssDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#EEFFFFFF"
+            android:textSize="30sp"
+            android:shadowColor="#AA000000"
+            android:shadowRadius="8" />
+
+        <TextView
+            android:id="@+id/ssNow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="#FFD400"
+            android:textSize="24sp"
+            android:shadowColor="#AA000000"
+            android:shadowRadius="8" />
+    </LinearLayout>
+</FrameLayout>

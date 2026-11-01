@@ -28,3 +28,9 @@ adb shell dpm set-device-owner il.co.vibit.tabletradio/.AdminReceiver
 
 ## עריכת תחנות
 `app/src/main/java/il/co/vibit/tabletradio/Stations.kt` — שינוי + push = APK חדש.
+
+## שומר מסך
+- אחרי דקה בלי נגיעה: מצגת תמונות מאלבום Google Photos + שעה, תאריך ושם התחנה. הרדיו ממשיך לנגן.
+- נגיעה = חזרה למסך הרדיו.
+- האלבום: `PhotoRepo.ALBUM_URL` (קישור שיתוף ציבורי). זמן ההמתנה: `MainActivity.IDLE_MS`. זמן לתמונה: `ScreensaverActivity.SLIDE_MS`.
+- התמונות נשמרות במטמון ומוצגות גם בלי אינטרנט. הרשימה מתרעננת כל 6 שעות.
