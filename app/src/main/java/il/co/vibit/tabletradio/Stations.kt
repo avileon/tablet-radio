@@ -20,6 +20,14 @@ data class TvChannel(
     val urls: List<String>,
 )
 
+data class VodSite(
+    val id: String,
+    val name: String,
+    val subtitle: String,
+    val color: Int,
+    val url: String,
+)
+
 object Stations {
     private const val SG = "https://gb25.streamgates.net/radios-audio"
 
@@ -78,7 +86,17 @@ object Stations {
         ),
     )
 
+    /** VOD חוקי וחינמי + YouTube — נפתחים בדפדפן פנימי (נשאר במצב קיוסק). */
+    val vod = listOf(
+        VodSite("youtube", "YouTube", "סרטונים, קליפים, טריילרים", 0xFFDC2626.toInt(), "https://m.youtube.com/"),
+        VodSite("kanbox", "כאן BOX", "סדרות ותוכניות של כאן 11", 0xFF0EA5E9.toInt(), "https://www.kan.org.il/lobby/kan-box/"),
+        VodSite("mako", "mako VOD", "תוכניות קשת 12", 0xFF7C3AED.toInt(), "https://www.mako.co.il/mako-vod-index"),
+        VodSite("reshet13", "13 VOD", "תוכניות רשת 13", 0xFFEA580C.toInt(), "https://13tv.co.il/allshows/"),
+    )
+
     val all: List<Station> get() = main + genres
+
+    fun vodById(id: String?): VodSite? = vod.firstOrNull { it.id == id }
 
     fun byId(id: String?): Station? = all.firstOrNull { it.id == id }
     fun tvById(id: String?): TvChannel? = tv.firstOrNull { it.id == id }

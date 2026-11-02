@@ -42,6 +42,7 @@ class MainActivity : Activity() {
         const val ADMIN_PIN = "1234"
         /** זמן ללא נגיעה עד הפעלת שומר המסך (תמונות + שעה). */
         const val IDLE_MS = 60_000L
+        private const val REQ_PHOTOS = 7
         private var pinningAsked = false
     }
 
@@ -106,8 +107,13 @@ class MainActivity : Activity() {
         setupVolume()
         buildContent()
         askPermissionsOnce()
-        // טעינה מוקדמת של רשימת התמונות לשומר המסך
-        Thread { try { PhotoRepo.urls(applicationContext) } catch (_: Exception) {} }.start()
+        // הפעלה ראשונה אחרי התקנה — בקשה לחבר אלבום תמונות לשומר המסך
+        if (!PhotoRepo.isConfigured(this)) {
+            handler.postDelayed({ if (!isFinishing) photoSetup(firstRun = true) }, 1500)
+        } else {
+            // טעינה מוקדמת של רשימת התמונות
+            Thread { try { PhotoRepo.urls(applicationContext) } catch (_: Exception) {} }.start()
+        }
     }
 
     // ---------- UI ----------
@@ -135,6 +141,13 @@ class MainActivity : Activity() {
         content.addView(grid(2, Stations.tv.map { ch ->
             tile("tv_" + ch.id, "📺  " + ch.name, "שידור חי", ch.color, 100) {
                 startActivity(Intent(this, TvActivity::class.java).putExtra(TvActivity.EXTRA_ID, ch.id))
+            }
+        }))
+
+        content.addView(header("צפייה לפי בחירה (VOD) ו-YouTube"))
+        content.addView(grid(if (wide) 4 else 2, Stations.vod.map { v ->
+            tile("vod_" + v.id, "▶  " + v.name, v.subtitle, v.color, 100) {
+                startActivity(Intent(this, WebActivity::class.java).putExtra(WebActivity.EXTRA_ID, v.id))
             }
         }))
     }
@@ -320,17 +333,132 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
         }
         AlertDialog.Builder(this)
-            .setTitle("יציאה ממצב קיוסק")
+            .setTitle("תפריט מנהל")
             .setView(input)
-            .setPositiveButton("הגדרות") { _, _ ->
-                if (input.text.toString() == ADMIN_PIN) exitKiosk(Settings.ACTION_SETTINGS)
-            }
-            .setNeutralButton("החלפת מסך בית") { _, _ ->
-                if (input.text.toString() == ADMIN_PIN) exitKiosk(Settings.ACTION_HOME_SETTINGS)
+            .setPositiveButton("כניסה") { _, _ ->
+                if (input.text.toString() == ADMIN_PIN) adminMenu()
+                else android.widget.Toast.makeText(this, "קוד שגוי", android.widget.Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("ביטול", null)
             .show()
     }
+
+    private fun adminMenu() {
+        val items = arrayOf("אלבום תמונות לשומר המסך", "הצג שומר מסך עכשיו", "הגדרות המכשיר", "החלפת מסך בית")
+        AlertDialog.Builder(this)
+            .setTitle("תפריט מנהל")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> photoSetup(firstRun = false)
+                    1 -> startActivity(Intent(this, ScreensaverActivity::class.java))
+                    2 -> exitKiosk(Settings.ACTION_SETTINGS)
+                    3 -> exitKiosk(Settings.ACTION_HOME_SETTINGS)
+                }
+            }
+            .setNegativeButton("סגור", null)
+            .show()
+    }
+
+    // ---------- photo album setup ----------
+
+    /** בחירת מקור תמונות לשומר המסך — מוצג אוטומטית בהפעלה הראשונה אחרי התקנה. */
+    private fun photoSetup(firstRun: Boolean) {
+        val items = arrayOf(
+            "אלבום Google Photos (קישור שיתוף)",
+            "תמונות מהגלריה של המכשיר",
+            "בלי תמונות — שעון בלבד",
+        )
+        AlertDialog.Builder(this)
+            .setTitle(if (firstRun) "חיבור אלבום תמונות לשומר המסך" else "אלבום תמונות")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> askAlbumLink()
+                    1 -> useDevicePhotos()
+                    2 -> { PhotoRepo.setSource(this, PhotoRepo.Source.NONE); toast("שומר המסך יציג שעון בלבד") }
+                }
+            }
+            .setCancelable(!firstRun)
+            .setNegativeButton(if (firstRun) "אחר כך" else "ביטול") { _, _ ->
+                if (firstRun) PhotoRepo.setSource(this, PhotoRepo.Source.NONE)
+            }
+            .show()
+    }
+
+    private fun askAlbumLink() {
+        val input = EditText(this).apply {
+            hint = "https://photos.app.goo.gl/…"
+            setText(PhotoRepo.albumUrl(this@MainActivity))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine(true)
+        }
+        // הדבקה מהלוח אם יש שם קישור
+        try {
+            val cb = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = cb.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+            if (clip != null && input.text.isEmpty() && (clip.contains("photos.app.goo.gl") || clip.contains("photos.google.com"))) {
+                input.setText(clip)
+            }
+        } catch (_: Exception) {}
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(TextView(this@MainActivity).apply {
+                text = "ב-Google Photos: אלבום ← שיתוף ← יצירת קישור, ולהדביק כאן."
+                textSize = 15f
+                setPadding(0, 0, 0, dp(8))
+            })
+            addView(input)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("קישור לאלבום Google Photos")
+            .setView(box)
+            .setPositiveButton("שמור") { _, _ ->
+                val url = input.text.toString().trim()
+                if (!url.startsWith("http")) { toast("קישור לא תקין"); askAlbumLink(); return@setPositiveButton }
+                toast("בודק את האלבום…")
+                Thread {
+                    val n = PhotoRepo.probeAlbum(url)
+                    runOnUiThread {
+                        if (n > 0) {
+                            PhotoRepo.setSource(this, PhotoRepo.Source.GOOGLE, url)
+                            toast("✓ חובר — נמצאו $n תמונות")
+                            Thread { PhotoRepo.urls(applicationContext) }.start()
+                        } else {
+                            toast("לא נמצאו תמונות. ודא שהאלבום משותף בקישור")
+                            askAlbumLink()
+                        }
+                    }
+                }.start()
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
+    private fun useDevicePhotos() {
+        val perm = if (Build.VERSION.SDK_INT >= 33) "android.permission.READ_MEDIA_IMAGES"
+        else Manifest.permission.READ_EXTERNAL_STORAGE
+        if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(perm), REQ_PHOTOS)
+        } else {
+            PhotoRepo.setSource(this, PhotoRepo.Source.DEVICE)
+            toast("שומר המסך יציג את תמונות הגלריה")
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_PHOTOS) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                PhotoRepo.setSource(this, PhotoRepo.Source.DEVICE)
+                toast("שומר המסך יציג את תמונות הגלריה")
+            } else {
+                toast("אין הרשאה לתמונות")
+                photoSetup(firstRun = !PhotoRepo.isConfigured(this))
+            }
+        }
+    }
+
+    private fun toast(msg: String) = android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
 
     private fun exitKiosk(action: String) {
         try { stopLockTask() } catch (_: Exception) {}
